@@ -11,6 +11,7 @@ import java.util.*;
 
 @RestController
 @RequestMapping("student")
+
 public class StudentController {
 
     private final Set<StudentSignUpDto> students;
