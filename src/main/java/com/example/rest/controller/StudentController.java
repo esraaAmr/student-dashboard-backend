@@ -11,12 +11,10 @@ import java.util.*;
 
 @RestController
 @RequestMapping("student")
-
 public class StudentController {
 
     private final Set<StudentSignUpDto> students;
     private final Set<String> loggedInUsers;
-
 
     public StudentController() {
         students = new LinkedHashSet<>();
@@ -26,7 +24,6 @@ public class StudentController {
     private boolean isLoggedIn(String email) {
         return email != null && loggedInUsers.contains(email.toLowerCase());
     }
-
 
     @PostMapping("signup")
     public ResponseEntity<String> signUpApi(@RequestBody StudentSignUpDto studentSignUpDto) {
@@ -59,7 +56,6 @@ public class StudentController {
         }
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Invalid credentials");
     }
-
 
     @DeleteMapping("logout")
     public void logoutApi(@RequestBody StudentLoginDto studentLoginDto) {
