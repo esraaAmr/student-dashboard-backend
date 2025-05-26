@@ -2,18 +2,20 @@ package com.example.rest.model.dto;
 
 import java.util.Objects;
 
-public class StudentResponse {
+public class UpdateStudentDto {
 
     private String name;
     private String email;
     private int age;
     private String address;
+    private String password;
 
-    public StudentResponse(String name, String email, int age, String address) {
+    public UpdateStudentDto(String name,String email, int age,  String address, String password) {
         this.name = name;
-        this.email = email;
         this.age = age;
+        this.email = email;
         this.address = address;
+        this.password = password;
     }
 
     public String getName() {
@@ -48,21 +50,29 @@ public class StudentResponse {
         this.address = address;
     }
 
+    public String getPassword() {
+        return password;
+    }
+
+    public void setPassword(String password) {
+        this.password = password;
+    }
+
     @Override
     public boolean equals(Object o) {
         if (o == null || getClass() != o.getClass()) return false;
-        StudentResponse that = (StudentResponse) o;
-        return age == that.age && Objects.equals(name, that.name) && Objects.equals(email, that.email) && Objects.equals(address, that.address);
+        UpdateStudentDto that = (UpdateStudentDto) o;
+        return age == that.age && Objects.equals(name, that.name) && Objects.equals(email, that.email) && Objects.equals(address, that.address) && Objects.equals(password, that.password);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(name, email, age, address);
+        return Objects.hash(name, email, age, address, password);
     }
 
     @Override
     public String toString() {
-        return "StudentResponse{" +
+        return "StudentSignUpDto{" +
                 "name='" + name + '\'' +
                 ", email='" + email + '\'' +
                 ", age=" + age +

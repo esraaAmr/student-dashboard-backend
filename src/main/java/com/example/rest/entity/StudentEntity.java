@@ -1,21 +1,35 @@
-package com.example.rest.model.dto;
+package com.example.rest.entity;
 
 import java.util.Objects;
 
-public class StudentSignUpDto {
-
+public class StudentEntity {
+    private String id;
     private String name;
     private String email;
     private int age;
     private String address;
     private String password;
+    private boolean isLoggedIn;
 
-    public StudentSignUpDto(String name,String email, int age,  String address, String password) {
+    public StudentEntity() {
+    }
+
+    public StudentEntity(String id, String name, String email, int age, String address, String password,boolean isLoggedIn) {
+        this.id = id;
         this.name = name;
-        this.age = age;
         this.email = email;
+        this.age = age;
         this.address = address;
         this.password = password;
+        this.isLoggedIn = isLoggedIn;
+    }
+
+    public String getId() {
+        return id;
+    }
+
+    public void setId(String id) {
+        this.id = id;
     }
 
     public String getName() {
@@ -58,25 +72,34 @@ public class StudentSignUpDto {
         this.password = password;
     }
 
+    public boolean isLoggedIn() {
+        return isLoggedIn;
+    }
+
+    public void setLoggedIn(boolean loggedIn) {
+        isLoggedIn = loggedIn;
+    }
+
     @Override
     public boolean equals(Object o) {
         if (o == null || getClass() != o.getClass()) return false;
-        StudentSignUpDto that = (StudentSignUpDto) o;
-        return age == that.age && Objects.equals(name, that.name) && Objects.equals(email, that.email) && Objects.equals(address, that.address) && Objects.equals(password, that.password);
+        StudentEntity that = (StudentEntity) o;
+        return getAge() == that.getAge() && isLoggedIn() == that.isLoggedIn() && Objects.equals(getId(), that.getId()) && Objects.equals(getName(), that.getName()) && Objects.equals(getEmail(), that.getEmail()) && Objects.equals(getAddress(), that.getAddress()) && Objects.equals(getPassword(), that.getPassword());
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(name, email, age, address, password);
+        return Objects.hash(getId(), getName(), getEmail(), getAge(), getAddress(), getPassword(), isLoggedIn());
     }
 
     @Override
     public String toString() {
-        return "StudentSignUpDto{" +
+        return "StudentEntity{" +
                 "name='" + name + '\'' +
                 ", email='" + email + '\'' +
                 ", age=" + age +
                 ", address='" + address + '\'' +
+                ", isLoggedIn=" + isLoggedIn +
                 '}';
     }
 }

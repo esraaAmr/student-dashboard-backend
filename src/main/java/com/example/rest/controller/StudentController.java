@@ -1,115 +1,117 @@
 package com.example.rest.controller;
 
+import com.example.rest.entity.StudentEntity;
 import com.example.rest.model.dto.StudentLoginDto;
 import com.example.rest.model.dto.StudentSignUpDto;
 import com.example.rest.model.dto.StudentResponse;
+import com.example.rest.model.dto.UpdateStudentDto;
+import com.example.rest.util.StudentRepo;
+import com.example.rest.util.StudentValidator;
+import com.example.rest.util.Utils;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.*;
 
+import static com.example.rest.util.Utils.generateRandomUuid;
+import static com.example.rest.util.transormation.StudentTransformation.mapFromStudentDtoToStudentEntity;
+
 @RestController
 @RequestMapping("student")
 public class StudentController {
 
-    private final Set<StudentSignUpDto> students;
-    private final Set<String> loggedInUsers;
-
-    public StudentController() {
-        students = new LinkedHashSet<>();
-        loggedInUsers = new HashSet<>();
-    }
-
-    private boolean isLoggedIn(String email) {
-        return email != null && loggedInUsers.contains(email.toLowerCase());
-    }
-
     @PostMapping("signup")
     public ResponseEntity<String> signUpApi(@RequestBody StudentSignUpDto studentSignUpDto) {
-        if (studentSignUpDto.getEmail().contains("@") &&
-                !studentSignUpDto.getName().isEmpty() &&
-                studentSignUpDto.getName().length() >= 2) {
-
-            boolean added = students.add(studentSignUpDto);
-            if (added) {
-                return ResponseEntity.status(HttpStatus.CREATED).body("Student registered successfully");
-            } else {
-                return ResponseEntity.status(HttpStatus.CONFLICT).body("Student already exists");
-            }
-
-        } else {
+        if (!StudentValidator.isEmailValidated(studentSignUpDto) || !StudentValidator.isNameValidated(studentSignUpDto)) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Invalid signup details");
         }
+
+        Optional<StudentEntity> optionalRegisteredStudents = StudentRepo.getStudentMap().values().stream()
+                .filter(registeredStudent ->registeredStudent.getEmail().equalsIgnoreCase(studentSignUpDto.getEmail()))
+                .findFirst();
+
+        if (optionalRegisteredStudents.isPresent()) {
+            return ResponseEntity.status(HttpStatus.CONFLICT).body("Student already exists");
+
+        }
+
+        StudentEntity studentEntity = mapFromStudentDtoToStudentEntity(studentSignUpDto);
+        StudentRepo.insertStudent(generateRandomUuid(),studentEntity);
+        return ResponseEntity.status(HttpStatus.CREATED).body("Student registered successfully");
+
     }
 
     @PostMapping("login")
     public ResponseEntity<String> loginApi(@RequestBody StudentLoginDto studentLoginDto) {
-        Optional<StudentSignUpDto> match = students.stream()
-                .filter(student -> student.getEmail().equalsIgnoreCase(studentLoginDto.getEmail())
-                        && student.getPassword().equals(studentLoginDto.getPassword()))
+        Optional<StudentEntity> optionalStudentEntity = StudentRepo.getStudentMap().values().stream()
+                .filter(student -> StudentValidator.isEmailMatched(student.getEmail(),studentLoginDto.getEmail())
+                        && StudentValidator.isPasswordMatched(student.getPassword(),studentLoginDto.getPassword()))
                 .findFirst();
 
-        if (match.isPresent()) {
-            loggedInUsers.add(match.get().getEmail().toLowerCase());
-            return ResponseEntity.ok("Login successful");
+        if (optionalStudentEntity.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Invalid credentials");
         }
-        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Invalid credentials");
+
+        StudentRepo.login(optionalStudentEntity.get().getId());
+        StudentRepo.insertStudent(optionalStudentEntity.get().getId(),optionalStudentEntity.get());
+        return ResponseEntity.ok("Login successful");
     }
 
-    @DeleteMapping("logout")
-    public void logoutApi(@RequestBody StudentLoginDto studentLoginDto) {
-        String email = studentLoginDto.getEmail().toLowerCase();
-        if (loggedInUsers.contains(email)) {
-            loggedInUsers.remove(email);
-            System.out.println("Student with email " + email + " has been logged out");
-        } else {
-            System.out.println("Student is not logged in.");
+    @DeleteMapping("logout/{email}")
+    public ResponseEntity<String> logoutApi(@PathVariable String id) {
+        if (!StudentRepo.isLoggedIn(id)) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Student is not logged in.");
         }
+        StudentRepo.logout(id);
+        return ResponseEntity.status(HttpStatus.OK).body("Logged out successfully");
     }
 
     @GetMapping("findAll")
-    public ResponseEntity<List<StudentResponse>> findAllApi(@RequestHeader String email) {
-        if (!isLoggedIn(email)) {
+    public ResponseEntity<List<StudentResponse>> findAllApi(@RequestParam String id) {
+        if (!StudentRepo.isLoggedIn(id)) {
             return new ResponseEntity<>(HttpStatus.UNAUTHORIZED);
         }
-        List<StudentResponse> result = students.stream()
-                .map(s -> new StudentResponse(s.getName(), s.getEmail(), s.getAge(), s.getAddress()))
+        List<StudentResponse> result = StudentRepo.getStudentMap().values().stream()
+                .map(student -> new StudentResponse(student.getName(), student.getEmail(),
+                        student.getAge(), student.getAddress()))
                 .toList();
         return ResponseEntity.ok(result);
     }
 
     @GetMapping("findFirst")
-    public ResponseEntity<StudentResponse> findFirstApi(@RequestHeader String email) {
-        if(!isLoggedIn(email)){
+    public ResponseEntity<StudentResponse> findFirstApi(@RequestParam String id) {
+        if(!StudentRepo.isLoggedIn(id)){
             return new ResponseEntity<>(HttpStatus.UNAUTHORIZED);
         }
-        return students.stream()
-                .map(studentSignUpDto ->  ResponseEntity.ok(new StudentResponse(studentSignUpDto.getName(),
+        return StudentRepo.getStudentMap().values().stream()
+                .map(studentSignUpDto ->
+                        ResponseEntity.ok(new StudentResponse(studentSignUpDto.getName(),
                         studentSignUpDto.getEmail(),studentSignUpDto.getAge(),
-                        studentSignUpDto.getAddress()))).findFirst().orElse(new ResponseEntity<>(HttpStatus.NOT_FOUND));
+                        studentSignUpDto.getAddress()))).findFirst()
+                .orElse(new ResponseEntity<>(HttpStatus.NOT_FOUND));
     }
 
     @GetMapping("findByName")
-    public ResponseEntity<StudentResponse> findByNameApi(@RequestParam String name,@RequestHeader String email) {
-        if (!isLoggedIn(email)){
+    public ResponseEntity<StudentResponse> findByNameApi(@RequestParam String name,@RequestParam String id) {
+        if (!StudentRepo.isLoggedIn(id)){
             return new ResponseEntity<>(HttpStatus.UNAUTHORIZED);
         }
-        return students.stream()
-                .filter(student -> student.getName().equalsIgnoreCase(name))
+        return StudentRepo.getStudentMap().values().stream()
+                .filter(student -> StudentValidator.isNameMatched(student.getName(), name))
                 .findFirst()
-                .map(s -> ResponseEntity.ok(new StudentResponse(s.getName(), s.getEmail(), s.getAge(), s.getAddress())))
+                .map(student -> ResponseEntity.ok(new StudentResponse(student.getName(), student.getEmail(), student.getAge(), student.getAddress())))
                 .orElse(new ResponseEntity<>(HttpStatus.NOT_FOUND));
 
     }
 
     @GetMapping("findByAge")
-    public ResponseEntity<List<StudentResponse>> findByAgeApi(@RequestParam int age,@RequestHeader String email) {
-        if (!isLoggedIn(email)){
+    public ResponseEntity<List<StudentResponse>> findByAgeApi(@RequestParam int age,@RequestParam String id) {
+        if (!StudentRepo.isLoggedIn(id)){
             return new ResponseEntity<>(HttpStatus.UNAUTHORIZED);
         }
-        List<StudentResponse> responses=  students.stream()
-                .filter(student -> student.getAge() == age)
+        List<StudentResponse> responses=  StudentRepo.getStudentMap().values().stream()
+                .filter(student -> StudentValidator.isAgeMatched(student.getAge(), age))
                 .map(student -> new StudentResponse(
                         student.getName(),
                         student.getEmail(),
@@ -119,59 +121,47 @@ public class StudentController {
     }
 
     @DeleteMapping("deleteByNameAndAge")
-    public ResponseEntity<String> deleteByNameAndAge(@RequestParam String name, @RequestParam int age,@RequestHeader String email) {
-        if (!isLoggedIn(email)){
+    public ResponseEntity<String> deleteByNameAndAge(@RequestParam String name, @RequestParam int age,@RequestParam String id) {
+        if (!StudentRepo.isLoggedIn(id)){
             return new ResponseEntity<>(HttpStatus.UNAUTHORIZED);
         }
-        boolean removed = students.removeIf(student -> student.getName().equalsIgnoreCase(name)
-                && student.getAge() == age);
-        if (removed) {
-            return ResponseEntity.ok("Students with name '" + name + "' and age " + age + " were deleted");
-        }else{
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(null);
+        boolean isRemoved = StudentRepo.getStudentMap().values().removeIf(student -> StudentValidator.isNameMatched(student.getName(), name) &&
+                StudentValidator.isAgeMatched(student.getAge(), age));
+        if (!isRemoved) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("students are not found");
         }
-    }
+        return ResponseEntity.ok("Students with name '" + name + "' and age " + age + " were deleted");
 
+    }
+    //TODO: i should change the dataStructure to solve it
     @PutMapping("update")
-    public ResponseEntity<String> updateStudentInfo(@RequestBody StudentSignUpDto updatedStudentDto,@RequestHeader String email) {
-        if (!isLoggedIn(email)){
-            return new ResponseEntity<>(HttpStatus.UNAUTHORIZED);
+    public ResponseEntity<String> updateStudentInfoApi(@RequestBody UpdateStudentDto updateStudentDto, @RequestParam String id) {
+        Optional<StudentEntity>optionalStudentEntity = StudentRepo.getStudentMap().values().stream()
+                .filter(student -> StudentValidator.isMatched(id, student.getId()))
+                .findFirst();
+        if (optionalStudentEntity.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Student with id " + id + " not found");
         }
-        String targetEmail  = updatedStudentDto.getEmail().toLowerCase();
-
-        for (StudentSignUpDto student : students) {
-            if (student.getEmail().equalsIgnoreCase(targetEmail )) {
-                student.setName(updatedStudentDto.getName());
-                student.setAge(updatedStudentDto.getAge());
-                student.setAddress(updatedStudentDto.getAddress());
-                student.setPassword(updatedStudentDto.getPassword());
-                return ResponseEntity.ok("Student information updated successfully.");
-            }
-        }
-        return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Student with email " + email + " not found.");
+        StudentRepo.updateStudent(updateStudentDto);
+        return ResponseEntity.status(HttpStatus.OK).body("Student with id " + id + " updated successfully");
     }
 
+    //TODO: Admin should do this (try to solve it)
     @DeleteMapping("deleteAll")
-    public ResponseEntity<String> deleteAllApi(@RequestHeader String email) {
-        if (!isLoggedIn(email)) {
-            return new ResponseEntity<>(HttpStatus.UNAUTHORIZED);
-        }
-        students.clear();
+    public ResponseEntity<String> deleteAllApi() {
+        StudentRepo.deleteAll();
         return ResponseEntity.ok("All students deleted");
     }
 
     @PostMapping("increaseAge")
-    public ResponseEntity<StudentResponse> increaseStudentAgeByOneApi(@RequestBody StudentSignUpDto studentSignUpDto, @RequestHeader String email) {
-        if (!isLoggedIn(email)) {
+    public ResponseEntity<StudentResponse> increaseStudentAgeByOneApi(@RequestBody StudentSignUpDto studentSignUpDto, @RequestHeader String id) {
+        if (!StudentRepo.isLoggedIn(id)) {
             return new ResponseEntity<>(HttpStatus.UNAUTHORIZED);
         }
-        int newAge = increaseAgeByOneYear(studentSignUpDto.getAge());
+        int newAge = Utils.increaseAgeByOneYear(studentSignUpDto.getAge());
         StudentResponse response = new StudentResponse(studentSignUpDto.getName(), studentSignUpDto.getEmail(), newAge, studentSignUpDto.getAddress());
         return ResponseEntity.ok(response);
     }
 
-    public int increaseAgeByOneYear(final int age) {
-        return age + 1;
-    }
 
 }
