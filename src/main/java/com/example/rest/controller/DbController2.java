@@ -1,5 +1,6 @@
 package com.example.rest.controller;
 
+import com.example.rest.config.StudentProperties;
 import com.example.rest.util.singleton.DbConnectionBean;
 import com.example.rest.util.singleton.DbConnectionDoubleCheckedLocking;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -11,21 +12,20 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("db2")
 public class DbController2 {
 
-    private DbConnectionBean dbConnection;
+    private final DbConnectionBean dbConnection;
 
-    public DbController2() {
-        System.out.println("In Controller2");
+    private final StudentProperties studentProperties;
+
+    @Autowired
+    public DbController2(DbConnectionBean dbConnection, StudentProperties studentProperties) {
+        this.dbConnection = dbConnection;
+        this.studentProperties = studentProperties;
     }
 
     //Constructor Injection
     @PostMapping("getPassword")
     public String getPasswordApi(){
-        return dbConnection.getPassword();
+        return dbConnection.getPassword()+ "/" +studentProperties.getUsername();
     }
 
-    @Autowired(required = false)
-    public void setDbConnectionBean(DbConnectionBean dbConnection){
-        System.out.println("setDbConnectionBean");
-        this.dbConnection=dbConnection;
-    }
 }

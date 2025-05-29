@@ -4,10 +4,15 @@ import org.springframework.stereotype.Component;
 
 //@Component
 public class DbConnectionBean {
-    private String url="jdbc:mysql://localhost:3306/test";
-    private String username="root";
-    private String password="root";
+    private String url;
+    private String username;
+    private String password;
 
+    public DbConnectionBean(String url, String username, String password) {
+        this.url = url;
+        this.username = username;
+        this.password = password;
+    }
 
     public DbConnectionBean() {
         System.out.println("DbConnectionBean()");
